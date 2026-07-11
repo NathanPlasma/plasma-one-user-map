@@ -1,0 +1,177 @@
+@media (hover: hover) and (pointer: fine) {
+  .button:hover:not(:disabled),
+  .source-card:hover:not(:disabled) {
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+  }
+
+  .inventory-card:hover,
+  .user-island:hover {
+    filter: drop-shadow(0 10px 18px rgba(48, 37, 27, 0.08));
+  }
+}
+
+@media (max-width: 1120px) {
+  .workshop-shell {
+    grid-template-rows: 64px 98px minmax(0, 1fr);
+  }
+
+  .topbar {
+    padding-inline: 16px;
+  }
+
+  .topbar-actions .save-state,
+  .topbar-actions .button-label-optional {
+    display: none;
+  }
+
+  .journey-rail {
+    grid-template-columns: minmax(0, 1fr) 40px minmax(0, 1fr);
+    padding-inline: 14px;
+    overflow-x: hidden;
+  }
+
+  .rail-group {
+    min-width: 0;
+  }
+
+  .rail-options {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .rail-button {
+    min-width: 0;
+    padding-inline: 7px;
+    font-size: 0.82rem;
+  }
+
+  .canvas-title-block {
+    top: 18px;
+    left: 20px;
+  }
+
+  .assembly-title-block[data-shelf-open='true'] {
+    max-width: calc(100% - 304px);
+    transform: translateX(264px);
+  }
+
+  .assembly-title-block[data-shelf-open='false'] {
+    transform: translateX(0);
+  }
+
+  .source-shelf {
+    top: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: 252px;
+  }
+
+  .canvas-toolbar[data-shelf-open='true'] {
+    right: 12px;
+    left: auto;
+  }
+
+  .user-island {
+    width: 372px;
+  }
+}
+
+@media (max-width: 760px) {
+  .topbar {
+    gap: 8px;
+  }
+
+  .board-title {
+    min-width: 0;
+    font-size: 1.04rem;
+  }
+
+  .icon-button[data-hide-compact='true'],
+  .button[data-hide-compact='true'] {
+    display: none;
+  }
+
+  .source-shelf {
+    width: min(286px, calc(100% - 24px));
+  }
+
+  .canvas-toolbar {
+    right: auto;
+    bottom: 12px;
+    left: 12px;
+  }
+
+  .canvas-toolbar[data-shelf-open='true'] {
+    right: auto;
+    left: 12px;
+  }
+
+  .source-shelf-scroll {
+    padding-bottom: 100px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .icon-button,
+  .rail-button,
+  .tool-button,
+  .source-card,
+  .action-chip,
+  .destination-option,
+  .react-flow__node {
+    transition-property: color, background-color, border-color, opacity !important;
+    transition-duration: 100ms !important;
+    transition-timing-function: ease !important;
+  }
+
+  .button:active:not(:disabled),
+  .icon-button:active:not(:disabled),
+  .rail-button:active:not(:disabled),
+  .tool-button:active:not(:disabled),
+  .source-card:active:not(:disabled),
+  .action-chip:active:not(:disabled),
+  .destination-option:active:not(:disabled) {
+    transform: none;
+  }
+
+  .source-shelf,
+  .assembly-title-block,
+  .canvas-toolbar {
+    transition-duration: 0ms !important;
+  }
+
+  .rail-button::after {
+    transition-duration: 0ms !important;
+  }
+
+  .island-sheet[data-over='true'] {
+    transform: none;
+  }
+
+  .spin {
+    animation: none;
+  }
+
+  [data-sonner-toaster],
+  [data-sonner-toast] {
+    animation-duration: 100ms !important;
+    transition-duration: 100ms !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) and (hover: hover) and (pointer: fine) {
+  .button:hover:not(:disabled),
+  .source-card:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .topbar,
+  .journey-rail,
+  .canvas-toolbar,
+  .modal-backdrop {
+    backdrop-filter: none;
+  }
+}
