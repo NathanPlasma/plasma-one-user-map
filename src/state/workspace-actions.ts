@@ -92,6 +92,7 @@ export type WorkspaceActions = {
     expectedRevision: number,
   ) => Promise<CommandResult>
   startNewBoard: (title?: string) => Promise<CommandResult>
+  openWorkspaceCopy: (copy: unknown) => Promise<CommandResult>
   restorePreviousBoard: () => Promise<CommandResult>
 
   createInventoryItem: (

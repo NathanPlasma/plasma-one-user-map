@@ -2,8 +2,10 @@ import type { Node } from '@xyflow/react'
 
 import type {
   IngredientKind,
+  InventoryBoard,
   InventoryKind,
   LocalCopy,
+  Point,
   UserIsland,
 } from '../../domain/types'
 
@@ -34,6 +36,8 @@ export type CategoryData = {
 
 export type CategoryFlowNode = Node<CategoryData, 'category'>
 
+export type CategoryHeaderFlowNode = Node<CategoryData, 'category-header'>
+
 export type IslandData = {
   island: UserIsland
   activeKind: IngredientKind | 'user' | null
@@ -54,7 +58,39 @@ export type IslandData = {
 
 export type IslandFlowNode = Node<IslandData, 'island'>
 
-export type WorkshopFlowNode = InventoryCardFlowNode | CategoryFlowNode | IslandFlowNode
+export type WorkshopFlowNode =
+  InventoryCardFlowNode | CategoryFlowNode | CategoryHeaderFlowNode | IslandFlowNode
+
+export function alignCategoryDragNodes(
+  nodes: WorkshopFlowNode[],
+  board: InventoryBoard,
+  categoryId: string,
+  draggedHeaderId: string,
+  position: Point,
+): WorkshopFlowNode[] {
+  const category = board.categoriesById[categoryId]
+  if (!category) return nodes
+  const delta = {
+    x: position.x - category.position.x,
+    y: position.y - category.position.y,
+  }
+  return nodes.map((node) => {
+    if (node.id === draggedHeaderId) return { ...node, position }
+    if (node.type === 'category' && node.id === categoryId) {
+      return { ...node, position }
+    }
+    if (node.type !== 'inventory-card') return node
+    const item = board.itemsById[node.id]
+    if (item?.categoryId !== categoryId) return node
+    return {
+      ...node,
+      position: {
+        x: item.position.x + delta.x,
+        y: item.position.y + delta.y,
+      },
+    }
+  })
+}
 
 export type SourceDragData = {
   type: 'source'

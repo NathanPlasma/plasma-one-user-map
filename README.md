@@ -62,7 +62,7 @@ The app is a static site. GitHub Actions verifies the repository and deploys `ma
 
 ## Data and recovery
 
-Workshop data stays in the current browser profile. `Save copy` exports a readable JSON checkpoint. Starting a new board preserves one recoverable previous generation, available from the New board dialog.
+Workshop data stays in the current browser profile. `Save copy` exports a validated JSON checkpoint. `Open copy` previews and opens that file as a new local generation without silently replacing the current board. The displaced board remains available from New board, then Restore previous board. Opening validates the V1 schema, relationships, file size, field lengths, and generous workshop entity limits before changing the current board.
 
 Use a dedicated browser profile for sensitive workshops.
 

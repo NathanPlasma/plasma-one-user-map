@@ -15,7 +15,7 @@ import {
   SelectionMode,
   useReactFlow,
 } from '@xyflow/react'
-import { PanelLeftOpen, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -32,7 +32,7 @@ import type {
 } from '../../domain/types'
 import { useReducedMotion } from '../../hooks/use-reduced-motion'
 import type { WorkspaceActions } from '../../state/workspace-store'
-import { kindConfig, kindStyle, stageConfig } from '../workshop/kind-config'
+import { kindStyle, stageConfig } from '../workshop/kind-config'
 import { IslandNode } from './IslandNode'
 import { AssemblyCanvasSurface } from './assembly/AssemblyCanvasSurface'
 import { useAssemblyCanvas } from './assembly/use-assembly-canvas'
@@ -58,7 +58,7 @@ function AssemblyWorkspaceInner({
   revision,
   actions,
 }: AssemblyWorkspaceProps) {
-  const { fitView, screenToFlowPosition } = useReactFlow<IslandFlowNode>()
+  const { screenToFlowPosition } = useReactFlow<IslandFlowNode>()
   const reducedMotion = useReducedMotion()
   const [activeTool, setActiveTool] = useState<'select' | 'pan'>('select')
   const [dndSession, setDndSession] = useState(0)
@@ -126,6 +126,7 @@ function AssemblyWorkspaceInner({
     activeStageKind && activeStageKind !== 'user' ? activeStageKind : null
 
   const {
+    fitCanvas,
     handleMoveEnd,
     handleNodeDragStop,
     layoutAnimating,
@@ -338,6 +339,7 @@ function AssemblyWorkspaceInner({
       <AssemblyCanvasSurface
         onNode={setWrapperNode}
         layoutAnimating={layoutAnimating}
+        layoutMode={workspace.assembly.layout.mode}
         style={kindStyle(activeStageKind ?? 'monetization')}
       >
         <div
@@ -406,28 +408,13 @@ function AssemblyWorkspaceInner({
           />
         ) : null}
 
-        {!showShelf &&
-        activeStageKind &&
-        workspace.assembly.layout.mode === 'freeform' ? (
-          <button
-            type="button"
-            className="button shelf-reopen"
-            onClick={() => void actions.setSourceShelfOpen(true)}
-          >
-            <PanelLeftOpen size={17} aria-hidden="true" />
-            Open locked {kindConfig[activeStageKind].plural.toLowerCase()}
-          </button>
-        ) : null}
-
         <CanvasToolbar
           phase="assembly"
           activeTool={activeTool}
           shelfOpen={showShelf}
           onToolChange={setActiveTool}
           onShelfToggle={() => void actions.setSourceShelfOpen(!showShelf)}
-          onFit={() =>
-            void fitView({ padding: 0.18, duration: reducedMotion ? 0 : 240 })
-          }
+          onFit={fitCanvas}
         />
 
         {destinationRequest ? (

@@ -15,6 +15,7 @@ playwright-report
 test-results
 coverage
 *.local
+/output/playwright/
 
 # Local agent state
 /.agents/

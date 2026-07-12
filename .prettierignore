@@ -5,3 +5,4 @@ test-results
 .playwright-cli
 package-lock.json
 .codex/handoff/evidence.jsonl
+output/playwright

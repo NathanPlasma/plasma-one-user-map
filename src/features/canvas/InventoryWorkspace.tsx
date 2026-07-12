@@ -13,10 +13,11 @@ import { LockKeyhole, MousePointer2, Scan } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
-import { AddItemDialog } from '../../components/AddItemDialog'
+import { AddItemDialog, type AddItemSubmitIntent } from '../../components/AddItemDialog'
 import { CanvasToolbar } from '../../components/CanvasToolbar'
 import { CategoryPickerDialog } from '../../components/CategoryPickerDialog'
 import { EmptyState } from '../../components/EmptyState'
+import { categoryHeaderNodeId } from '../../domain/entity-ids'
 import type {
   CommandResult,
   InventoryBoard,
@@ -26,18 +27,23 @@ import type {
 import type { WorkspaceActions } from '../../state/workspace-store'
 import { useReducedMotion } from '../../hooks/use-reduced-motion'
 import { kindConfig, kindStyle } from '../workshop/kind-config'
-import { CategoryNode } from './CategoryNode'
+import { CategoryHeaderNode, CategoryNode } from './CategoryNode'
 import { InventoryCardNode } from './InventoryCardNode'
 import { resolveVerticalOverlaps } from './layout/resolve-overlaps'
+import { alignCategoryDragNodes } from './view-models'
 import type {
   CategoryFlowNode,
+  CategoryHeaderFlowNode,
   InventoryCardFlowNode,
   WorkshopFlowNode,
 } from './view-models'
 
+const CATEGORY_HEADER_Z_INDEX = 2_000
+
 const nodeTypes = {
   'inventory-card': InventoryCardNode,
   category: CategoryNode,
+  'category-header': CategoryHeaderNode,
 }
 
 type InventoryWorkspaceProps = {
@@ -147,8 +153,7 @@ function InventoryWorkspaceInner({
         width: category.size.width,
         height: category.size.height,
         zIndex: 0,
-        draggable: !readOnly,
-        dragHandle: '.drag-handle',
+        draggable: false,
         selectable: true,
         focusable: false,
         data: {
@@ -165,6 +170,35 @@ function InventoryWorkspaceInner({
         },
       }),
     )
+
+    const categoryHeaderNodes: CategoryHeaderFlowNode[] = Object.values(
+      board.categoriesById,
+    ).map((category) => ({
+      id: categoryHeaderNodeId(category.id),
+      type: 'category-header',
+      position: category.position,
+      width: category.size.width,
+      height: category.size.height,
+      zIndex: CATEGORY_HEADER_Z_INDEX,
+      style: { pointerEvents: 'none' },
+      draggable: !readOnly,
+      dragHandle: '.drag-handle',
+      selectable: false,
+      deletable: false,
+      focusable: false,
+      data: {
+        categoryId: category.id,
+        kind,
+        title: category.title,
+        itemCount: Object.values(board.itemsById).filter(
+          (item) => item.categoryId === category.id,
+        ).length,
+        readOnly,
+        onRename: renameCategory,
+        onDelete: deleteCategory,
+        onResize: resizeCategory,
+      },
+    }))
 
     const itemNodes: InventoryCardFlowNode[] = Object.values(board.itemsById).map(
       (item) => ({
@@ -188,7 +222,7 @@ function InventoryWorkspaceInner({
         },
       }),
     )
-    return [...categoryNodes, ...itemNodes]
+    return [...categoryNodes, ...categoryHeaderNodes, ...itemNodes]
   }, [
     board.categoriesById,
     board.itemsById,
@@ -332,6 +366,16 @@ function InventoryWorkspaceInner({
   const handleNodeDragStop: OnNodeDrag<WorkshopFlowNode> = useCallback(
     (_, draggedNode) => {
       if (readOnly) return
+      if (draggedNode.type === 'category-header') {
+        void actions
+          .updateInventoryCategory(kind, draggedNode.data.categoryId, {
+            position: draggedNode.position,
+          })
+          .then((result) => {
+            if (!showError(result)) setNodes(buildNodes())
+          })
+        return
+      }
       if (draggedNode.type === 'category') {
         void actions
           .updateInventoryCategory(kind, draggedNode.id, {
@@ -370,6 +414,22 @@ function InventoryWorkspaceInner({
     ],
   )
 
+  const handleNodeDrag: OnNodeDrag<WorkshopFlowNode> = useCallback(
+    (_, draggedNode) => {
+      if (readOnly || draggedNode.type !== 'category-header') return
+      setNodes((currentNodes) =>
+        alignCategoryDragNodes(
+          currentNodes,
+          board,
+          draggedNode.data.categoryId,
+          draggedNode.id,
+          draggedNode.position,
+        ),
+      )
+    },
+    [board, readOnly, setNodes],
+  )
+
   const handleSelectionChange = useCallback(
     ({ nodes: nextSelection }: OnSelectionChangeParams<WorkshopFlowNode>) => {
       setSelectedItemIds(
@@ -388,28 +448,33 @@ function InventoryWorkspaceInner({
     [actions, kind, showError],
   )
 
-  const openAddAtCentre = useCallback(() => {
-    const rect = wrapperRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const itemCount = Object.keys(board.itemsById).length
-    const slot = itemCount % 6
-    const row = Math.floor(itemCount / 6)
-    const offsets = [
-      { x: 0, y: 0 },
-      { x: 258, y: 0 },
-      { x: -258, y: 0 },
-      { x: 0, y: 126 },
-      { x: 258, y: 126 },
-      { x: -258, y: 126 },
-    ]
-    const offset = offsets[slot]
-    setPendingAdd({
-      position: screenToFlowPosition({
+  const getAddPosition = useCallback(
+    (itemCount: number): Point | null => {
+      const rect = wrapperRef.current?.getBoundingClientRect()
+      if (!rect) return null
+      const slot = itemCount % 6
+      const row = Math.floor(itemCount / 6)
+      const offsets = [
+        { x: 0, y: 0 },
+        { x: 258, y: 0 },
+        { x: -258, y: 0 },
+        { x: 0, y: 126 },
+        { x: 258, y: 126 },
+        { x: -258, y: 126 },
+      ]
+      const offset = offsets[slot]
+      return screenToFlowPosition({
         x: rect.left + rect.width * 0.5 - 110 + offset.x,
         y: rect.top + rect.height * 0.44 + offset.y + row * 252,
-      }),
-    })
-  }, [board.itemsById, screenToFlowPosition])
+      })
+    },
+    [screenToFlowPosition],
+  )
+
+  const openAddAtCentre = useCallback(() => {
+    const position = getAddPosition(Object.keys(board.itemsById).length)
+    if (position) setPendingAdd({ position })
+  }, [board.itemsById, getAddPosition])
 
   const groupSelected = useCallback(() => {
     const itemNodes = selectedNodes.filter(
@@ -530,6 +595,7 @@ function InventoryWorkspaceInner({
         elementsSelectable
         elevateNodesOnSelect
         onNodesChange={onNodesChange}
+        onNodeDrag={handleNodeDrag}
         onNodeDragStop={handleNodeDragStop}
         onSelectionChange={handleSelectionChange}
         onMoveEnd={handleMoveEnd}
@@ -587,12 +653,21 @@ function InventoryWorkspaceInner({
         <AddItemDialog
           kind={kind}
           onCancel={() => setPendingAdd(null)}
-          onCreate={(title, note) =>
+          onCreate={(title, note, intent: AddItemSubmitIntent) =>
             actions
               .createInventoryItem({ kind, title, note, position: pendingAdd.position })
               .then((result) => {
                 const created = showError(result)
-                if (created) setPendingAdd(null)
+                if (created && intent === 'close') setPendingAdd(null)
+                if (created && intent === 'continue') {
+                  const nextPosition = getAddPosition(
+                    Object.keys(board.itemsById).length + 1,
+                  ) ?? {
+                    x: pendingAdd.position.x + 24,
+                    y: pendingAdd.position.y + 24,
+                  }
+                  setPendingAdd({ position: nextPosition })
+                }
                 return created
               })
           }

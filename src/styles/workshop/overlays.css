@@ -102,6 +102,7 @@
 
 .dialog-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 10px;
   padding: 22px 24px 24px;
@@ -133,6 +134,56 @@
 .dialog-form textarea {
   min-height: 112px;
   resize: vertical;
+}
+
+.copy-preview {
+  display: grid;
+  gap: 14px;
+  margin: 0 24px;
+  padding: 16px;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.copy-preview-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.copy-preview-heading strong {
+  font-size: 1rem;
+}
+
+.copy-preview-heading span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.copy-preview-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.copy-preview-stats span {
+  padding: 5px 8px;
+  color: var(--ink-soft);
+  font-size: 0.74rem;
+  font-weight: 590;
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.dialog-error {
+  margin: 16px 24px 0;
+  color: var(--danger);
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 .dialog-footnote {

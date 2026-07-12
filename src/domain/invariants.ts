@@ -5,6 +5,7 @@ import {
   type InventoryKind,
   type WorkspaceState,
 } from './types'
+import { isReservedWorkspaceEntityId } from './entity-ids'
 
 export class WorkspaceInvariantError extends Error {
   readonly issues: string[]
@@ -14,6 +15,10 @@ export class WorkspaceInvariantError extends Error {
     this.name = 'WorkspaceInvariantError'
     this.issues = issues
   }
+}
+
+function hasOwn(record: object, id: PropertyKey): boolean {
+  return Object.hasOwn(record, id)
 }
 
 function validateBoard(
@@ -28,6 +33,9 @@ function validateBoard(
   }
 
   for (const [id, category] of Object.entries(board.categoriesById)) {
+    if (isReservedWorkspaceEntityId(id)) {
+      issues.push(`${prefix}.categoriesById.${id} uses a reserved id`)
+    }
     if (category.id !== id) {
       issues.push(`${prefix}.categoriesById.${id} has mismatched id`)
     }
@@ -37,6 +45,12 @@ function validateBoard(
   }
 
   for (const [id, item] of Object.entries(board.itemsById)) {
+    if (isReservedWorkspaceEntityId(id)) {
+      issues.push(`${prefix}.itemsById.${id} uses a reserved id`)
+    }
+    if (hasOwn(board.categoriesById, id)) {
+      issues.push(`${prefix} uses id ${id} for both an item and a category`)
+    }
     if (item.id !== id) {
       issues.push(`${prefix}.itemsById.${id} has mismatched id`)
     }
@@ -44,17 +58,19 @@ function validateBoard(
       issues.push(`${prefix}.itemsById.${id} has mismatched kind`)
     }
     if (item.categoryId !== null) {
-      const category = board.categoriesById[item.categoryId]
-      if (!category) {
+      if (!hasOwn(board.categoriesById, item.categoryId)) {
         issues.push(`${prefix}.itemsById.${id} references a missing category`)
-      } else if (category.kind !== item.kind) {
+      } else if (board.categoriesById[item.categoryId].kind !== item.kind) {
         issues.push(`${prefix}.itemsById.${id} references another inventory kind`)
       }
     }
   }
 
   for (const selectedId of board.selectedIds) {
-    if (!board.itemsById[selectedId] && !board.categoriesById[selectedId]) {
+    if (
+      !hasOwn(board.itemsById, selectedId) &&
+      !hasOwn(board.categoriesById, selectedId)
+    ) {
       issues.push(`${prefix}.selectedIds contains missing id ${selectedId}`)
     }
   }
@@ -101,7 +117,7 @@ export function collectWorkspaceInvariantIssues(workspace: WorkspaceState): stri
   }
 
   for (const id of assembly.islandOrder) {
-    if (!assembly.islandsById[id]) {
+    if (!hasOwn(assembly.islandsById, id)) {
       issues.push(`assembly.islandOrder references missing island ${id}`)
     }
   }
@@ -117,8 +133,7 @@ export function collectWorkspaceInvariantIssues(workspace: WorkspaceState): stri
     if (island.checkpointId !== checkpoint.id) {
       issues.push(`assembly island ${islandId} uses another checkpoint`)
     }
-    const userSource = checkpoint.inventories.user.itemsById[island.sourceUserId]
-    if (!userSource) {
+    if (!hasOwn(checkpoint.inventories.user.itemsById, island.sourceUserId)) {
       issues.push(`assembly island ${islandId} references a missing User source`)
     }
     if (island.variantName === null) {
@@ -130,10 +145,14 @@ export function collectWorkspaceInvariantIssues(workspace: WorkspaceState): stri
       issues.push(`assembly island ${islandId} has an empty variant name`)
     }
 
-    if (!assembly.layout.freeformPositions[islandId]) {
+    if (!hasOwn(assembly.layout.freeformPositions, islandId)) {
       issues.push(`assembly island ${islandId} has no freeform position`)
     }
-    if (assembly.layout.mode === 'tidy' && !assembly.layout.tidyPositions?.[islandId]) {
+    if (
+      assembly.layout.mode === 'tidy' &&
+      (!assembly.layout.tidyPositions ||
+        !hasOwn(assembly.layout.tidyPositions, islandId))
+    ) {
       issues.push(`assembly island ${islandId} has no tidy position`)
     }
 
@@ -145,10 +164,9 @@ export function collectWorkspaceInvariantIssues(workspace: WorkspaceState): stri
           issues.push(`assembly island ${islandId} orders copy ${copyId} twice`)
         }
         orderedCopies.add(copyId)
-        const copy = island.copiesById[copyId]
-        if (!copy) {
+        if (!hasOwn(island.copiesById, copyId)) {
           issues.push(`assembly island ${islandId} orders missing copy ${copyId}`)
-        } else if (copy.kind !== kind) {
+        } else if (island.copiesById[copyId].kind !== kind) {
           issues.push(`assembly copy ${copyId} is ordered under the wrong sheet`)
         }
       }
@@ -171,13 +189,12 @@ export function collectWorkspaceInvariantIssues(workspace: WorkspaceState): stri
       }
       sourceIds.add(copy.sourceId)
 
-      const source = checkpoint.inventories[copy.kind].itemsById[copy.sourceId]
-      if (!source) {
+      if (!hasOwn(checkpoint.inventories[copy.kind].itemsById, copy.sourceId)) {
         issues.push(`assembly copy ${copyId} references a missing source`)
       }
       if (
         copy.sourceCategoryId !== null &&
-        !checkpoint.inventories[copy.kind].categoriesById[copy.sourceCategoryId]
+        !hasOwn(checkpoint.inventories[copy.kind].categoriesById, copy.sourceCategoryId)
       ) {
         issues.push(`assembly copy ${copyId} references a missing source category`)
       }
@@ -185,12 +202,12 @@ export function collectWorkspaceInvariantIssues(workspace: WorkspaceState): stri
   }
 
   for (const islandId of Object.keys(assembly.layout.freeformPositions)) {
-    if (!assembly.islandsById[islandId]) {
+    if (!hasOwn(assembly.islandsById, islandId)) {
       issues.push(`freeform layout references missing island ${islandId}`)
     }
   }
   for (const islandId of Object.keys(assembly.layout.tidyPositions ?? {})) {
-    if (!assembly.islandsById[islandId]) {
+    if (!hasOwn(assembly.islandsById, islandId)) {
       issues.push(`tidy layout references missing island ${islandId}`)
     }
   }

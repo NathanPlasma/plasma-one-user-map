@@ -1,22 +1,37 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ChangeEvent,
+} from 'react'
 import { Toaster, toast } from 'sonner'
 
 import { useWorkspace, useWorkspaceStore } from './app/workspace-store-context'
 import { JourneyRail } from './components/JourneyRail'
 import { LockDialog } from './components/LockDialog'
 import { NewBoardDialog } from './components/NewBoardDialog'
+import { OpenCopyDialog } from './components/OpenCopyDialog'
 import { RecoveryBanner } from './components/RecoveryBanner'
 import { TopBar } from './components/TopBar'
-import type { AssemblyStage, InventoryKind, LockReview } from './domain/types'
+import type {
+  AssemblyStage,
+  InventoryKind,
+  LockReview,
+  WorkspaceState,
+} from './domain/types'
 import { AssemblyWorkspace } from './features/canvas/AssemblyWorkspace'
 import { InventoryWorkspace } from './features/canvas/InventoryWorkspace'
+import {
+  MAX_WORKSPACE_COPY_BYTES,
+  parseWorkspaceCopyText,
+  serializeWorkspaceCopy,
+  type ParsedWorkspaceCopy,
+} from './persistence/workspace-copy'
 
-function exportWorkspace(workspace: unknown, title: string) {
-  const payload = JSON.stringify(
-    { formatVersion: 1, exportedAt: new Date().toISOString(), workspace },
-    null,
-    2,
-  )
+function exportWorkspace(workspace: WorkspaceState, title: string) {
+  const payload = serializeWorkspaceCopy(workspace)
   const blob = new Blob([payload], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
@@ -62,6 +77,12 @@ function App() {
   const [lockError, setLockError] = useState<string | undefined>()
   const [showNewBoard, setShowNewBoard] = useState(false)
   const [clearing, setClearing] = useState(false)
+  const [pendingCopy, setPendingCopy] = useState<
+    (ParsedWorkspaceCopy & { fileName: string }) | null
+  >(null)
+  const [openingCopy, setOpeningCopy] = useState(false)
+  const [openCopyError, setOpenCopyError] = useState<string | undefined>()
+  const copyInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => setTitleDraft(workspace.title), [workspace.title])
   useEffect(() => {
@@ -130,6 +151,35 @@ function App() {
     window.dispatchEvent(new CustomEvent('workshop:cancel-drag'))
   }, [])
 
+  const handleOpenCopySelection = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.currentTarget.files?.[0]
+      event.currentTarget.value = ''
+      if (!file) return
+      cancelActiveDrag()
+      if (file.size > MAX_WORKSPACE_COPY_BYTES) {
+        toast.error('That saved copy is too large to open safely.')
+        return
+      }
+      try {
+        const parsed = parseWorkspaceCopyText(await file.text())
+        setOpenCopyError(undefined)
+        setPendingCopy({ ...parsed, fileName: file.name })
+      } catch {
+        toast.error('That file is not a valid Plasma One User Map copy.')
+      }
+    },
+    [cancelActiveDrag],
+  )
+
+  const savePortableCopy = useCallback((current: WorkspaceState) => {
+    try {
+      exportWorkspace(current, current.title)
+    } catch {
+      toast.error('This board is too large or invalid to save as a portable copy.')
+    }
+  }, [])
+
   const handleSaveCopy = useCallback(async () => {
     const normalizedTitle = titleDraft.trim() || 'Plasma One User Map'
     const titleResult = await actions.setTitle(normalizedTitle)
@@ -138,8 +188,8 @@ function App() {
       return
     }
     const latest = store.getState().workspace
-    exportWorkspace(latest, latest.title)
-  }, [actions, store, titleDraft])
+    savePortableCopy(latest)
+  }, [actions, savePortableCopy, store, titleDraft])
 
   const handleInventoryChange = useCallback(
     (kind: InventoryKind) => {
@@ -231,8 +281,17 @@ function App() {
         onUndo={() => void actions.undo()}
         onRedo={() => void actions.redo()}
         onSaveCopy={() => void handleSaveCopy()}
+        onOpenCopy={() => copyInputRef.current?.click()}
         onNewBoard={() => setShowNewBoard(true)}
         onPrimaryAction={handlePrimaryAction}
+      />
+      <input
+        ref={copyInputRef}
+        className="sr-only"
+        type="file"
+        accept=".json,application/json"
+        aria-label="Select saved copy"
+        onChange={(event) => void handleOpenCopySelection(event)}
       />
       <JourneyRail
         phase={phase}
@@ -344,6 +403,34 @@ function App() {
         />
       ) : null}
 
+      {pendingCopy ? (
+        <OpenCopyDialog
+          fileName={pendingCopy.fileName}
+          preview={pendingCopy.preview}
+          opening={openingCopy}
+          error={openCopyError}
+          onCancel={() => {
+            if (!openingCopy) setPendingCopy(null)
+          }}
+          onConfirm={() => {
+            cancelActiveDrag()
+            setOpeningCopy(true)
+            setOpenCopyError(undefined)
+            void actions.openWorkspaceCopy(pendingCopy.copy).then((result) => {
+              setOpeningCopy(false)
+              if (!result.ok) {
+                setOpenCopyError(result.message)
+                return
+              }
+              setPendingCopy(null)
+              toast.success(
+                'Saved copy opened. Your previous board remains recoverable.',
+              )
+            })
+          }}
+        />
+      ) : null}
+
       {hydrationStatus === 'error' ||
       externalWriteConflict ||
       recoveredFromCorruption ? (
@@ -359,7 +446,7 @@ function App() {
           }
           canRetry={Boolean(externalWriteConflict) || hydrationStatus === 'error'}
           onRetry={() => void actions.hydrate()}
-          onSaveCopy={() => exportWorkspace(workspace, workspace.title)}
+          onSaveCopy={() => savePortableCopy(workspace)}
         />
       ) : null}
 
