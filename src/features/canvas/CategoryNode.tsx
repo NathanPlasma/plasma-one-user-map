@@ -4,9 +4,29 @@ import { useEffect, useState } from 'react'
 
 import { ActionMenu } from '../../components/ActionMenu'
 import { kindStyle } from '../workshop/kind-config'
-import type { CategoryFlowNode } from './view-models'
+import type { CategoryFlowNode, CategoryHeaderFlowNode } from './view-models'
 
 export function CategoryNode({ data, selected }: NodeProps<CategoryFlowNode>) {
+  return (
+    <section
+      className="category-node paper-grain"
+      style={kindStyle(data.kind)}
+      aria-hidden="true"
+    >
+      <NodeResizer
+        minWidth={300}
+        minHeight={220}
+        isVisible={selected && !data.readOnly}
+        color="var(--active-colour)"
+        onResizeEnd={(_, params) =>
+          data.onResize(data.categoryId, params.width, params.height)
+        }
+      />
+    </section>
+  )
+}
+
+export function CategoryHeaderNode({ data }: NodeProps<CategoryHeaderFlowNode>) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(data.title)
   const [menuAnchor, setMenuAnchor] = useState<{ x: number; y: number } | null>(null)
@@ -32,8 +52,7 @@ export function CategoryNode({ data, selected }: NodeProps<CategoryFlowNode>) {
 
   return (
     <section
-      className="category-node paper-grain"
-      style={kindStyle(data.kind)}
+      className="category-node-overlay"
       aria-label={`${data.title}, category with ${data.itemCount} ${data.itemCount === 1 ? 'item' : 'items'}`}
       tabIndex={data.readOnly ? undefined : 0}
       onDoubleClick={(event) => {
@@ -53,16 +72,10 @@ export function CategoryNode({ data, selected }: NodeProps<CategoryFlowNode>) {
         }
       }}
     >
-      <NodeResizer
-        minWidth={300}
-        minHeight={220}
-        isVisible={selected && !data.readOnly}
-        color="var(--active-colour)"
-        onResizeEnd={(_, params) =>
-          data.onResize(data.categoryId, params.width, params.height)
-        }
-      />
-      <header className="category-node-header drag-handle">
+      <header
+        className="category-node-header category-node-header-raised drag-handle"
+        style={kindStyle(data.kind)}
+      >
         {editing ? (
           <input
             className="nodrag nopan"

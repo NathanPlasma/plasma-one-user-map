@@ -22,6 +22,7 @@ import type {
   WorkspaceState,
 } from '../domain/types'
 import { INVENTORY_KINDS } from '../domain/types'
+import { parseWorkspaceCopy } from '../persistence/workspace-copy'
 import { createAssemblyContentActions } from './assembly-actions'
 import { fail, MutationRejected, succeed } from './command-utils'
 import { SplitHistory } from './history'
@@ -457,6 +458,35 @@ export function createWorkspaceStore(
             title,
           })
           const next = produce(blank, (draft) => {
+            draft.contentRevision = current.workspace.contentRevision + 1
+            draft.previousBoardGeneration =
+              current.verifiedGeneration > 0 ? current.verifiedGeneration : null
+          })
+          const persisted = await persistAndPublish(next)
+          if (!persisted.ok) return persisted
+          history.clearAll()
+          syncAvailability()
+          return succeed(undefined, persisted.value.contentRevision)
+        }),
+
+      openWorkspaceCopy: (copy) =>
+        runExclusive(async () => {
+          let imported: WorkspaceState
+          try {
+            imported = parseWorkspaceCopy(copy).copy.workspace
+          } catch {
+            return fail(
+              'INVALID_COPY',
+              'That file is not a valid Plasma One User Map copy.',
+            )
+          }
+
+          const current = get()
+          const now = clock()
+          const next = produce(imported, (draft) => {
+            draft.workspaceId = workspaceId
+            draft.createdAt = now
+            draft.updatedAt = now
             draft.contentRevision = current.workspace.contentRevision + 1
             draft.previousBoardGeneration =
               current.verifiedGeneration > 0 ? current.verifiedGeneration : null

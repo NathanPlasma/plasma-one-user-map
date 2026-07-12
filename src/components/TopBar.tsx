@@ -3,6 +3,7 @@ import {
   CloudAlert,
   CopyPlus,
   FilePlus2,
+  FolderOpen,
   LoaderCircle,
   Redo2,
   Undo2,
@@ -21,6 +22,7 @@ type TopBarProps = {
   onUndo: () => void
   onRedo: () => void
   onSaveCopy: () => void
+  onOpenCopy: () => void
   onNewBoard: () => void
   onPrimaryAction: () => void
 }
@@ -44,6 +46,7 @@ export function TopBar({
   onUndo,
   onRedo,
   onSaveCopy,
+  onOpenCopy,
   onNewBoard,
   onPrimaryAction,
 }: TopBarProps) {
@@ -99,6 +102,15 @@ export function TopBar({
         >
           <Redo2 size={18} aria-hidden="true" />
           <span className="button-label-optional">Redo</span>
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label="Open copy"
+          onClick={onOpenCopy}
+        >
+          <FolderOpen size={17} aria-hidden="true" />
+          <span className="button-label-optional">Open copy</span>
         </button>
         <button
           type="button"

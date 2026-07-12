@@ -8,8 +8,14 @@ type AddItemDialogProps = {
   kind: InventoryKind
   initialTitle?: string
   onCancel: () => void
-  onCreate: (title: string, note: string) => Promise<boolean>
+  onCreate: (
+    title: string,
+    note: string,
+    intent: AddItemSubmitIntent,
+  ) => Promise<boolean>
 }
+
+export type AddItemSubmitIntent = 'close' | 'continue'
 
 export function AddItemDialog({
   kind,
@@ -25,19 +31,29 @@ export function AddItemDialog({
   const [submitting, setSubmitting] = useState(false)
   const submittingRef = useRef(false)
 
-  const submit = async () => {
+  const resetSubmission = () => {
+    submittingRef.current = false
+    setSubmitting(false)
+  }
+
+  const submit = async (intent: AddItemSubmitIntent) => {
     if (submittingRef.current || !title.trim()) return
     submittingRef.current = true
     setSubmitting(true)
     try {
-      const created = await onCreate(title.trim(), note.trim())
+      const created = await onCreate(title.trim(), note.trim(), intent)
       if (!created) {
-        submittingRef.current = false
-        setSubmitting(false)
+        resetSubmission()
+        return
+      }
+      if (intent === 'continue') {
+        setTitle('')
+        setNote('')
+        resetSubmission()
+        inputRef.current?.focus({ preventScroll: true })
       }
     } catch {
-      submittingRef.current = false
-      setSubmitting(false)
+      resetSubmission()
     }
   }
 
@@ -60,12 +76,12 @@ export function AddItemDialog({
         <form
           onSubmit={(event) => {
             event.preventDefault()
-            void submit()
+            void submit('close')
           }}
           onKeyDown={(event) => {
             if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
               event.preventDefault()
-              void submit()
+              void submit('close')
             }
           }}
         >
@@ -97,6 +113,14 @@ export function AddItemDialog({
               onClick={onCancel}
             >
               Cancel
+            </button>
+            <button
+              type="button"
+              className="button"
+              disabled={!title.trim() || submitting}
+              onClick={() => void submit('continue')}
+            >
+              Save and add another
             </button>
             <button
               type="submit"

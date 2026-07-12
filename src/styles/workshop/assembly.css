@@ -119,13 +119,6 @@
   background: color-mix(in srgb, var(--active-soft) 45%, white 55%);
 }
 
-.shelf-reopen {
-  position: absolute;
-  top: 22px;
-  left: 18px;
-  z-index: 10;
-}
-
 .user-island {
   position: relative;
   width: 408px;
@@ -304,6 +297,18 @@
   font-weight: 440;
   line-height: 1.35;
   white-space: pre-wrap;
+}
+
+.workspace-main[data-layout-mode='tidy'] .island-user-note,
+.workspace-main[data-layout-mode='tidy'] .copy-note,
+.workspace-main[data-tidy-measuring='true'] .island-user-note,
+.workspace-main[data-tidy-measuring='true'] .copy-note {
+  display: -webkit-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
 }
 
 .copy-drag-handle {

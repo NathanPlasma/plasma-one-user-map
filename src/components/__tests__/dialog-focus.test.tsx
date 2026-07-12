@@ -84,6 +84,61 @@ describe('dialog focus intent', () => {
 })
 
 describe('dialog keyboard containment', () => {
+  it('clears successful continued inventory capture and refocuses Title', async () => {
+    const user = userEvent.setup()
+    const onCreate = vi.fn(async () => true)
+    render(<AddItemDialog kind="problem" onCancel={noop} onCreate={onCreate} />)
+
+    const title = screen.getByRole('textbox', { name: 'Title' })
+    const note = screen.getByRole('textbox', { name: 'Optional note' })
+    await user.type(title, 'Slow transfers')
+    await user.type(note, 'A long wait before funds arrive')
+    await user.click(screen.getByRole('button', { name: 'Save and add another' }))
+
+    expect(onCreate).toHaveBeenCalledWith(
+      'Slow transfers',
+      'A long wait before funds arrive',
+      'continue',
+    )
+    expect(title).toHaveValue('')
+    expect(note).toHaveValue('')
+    expect(title).toHaveFocus()
+  })
+
+  it('retains continued-capture fields when creation fails', async () => {
+    const user = userEvent.setup()
+    const onCreate = vi.fn(async () => false)
+    render(<AddItemDialog kind="problem" onCancel={noop} onCreate={onCreate} />)
+
+    const title = screen.getByRole('textbox', { name: 'Title' })
+    const note = screen.getByRole('textbox', { name: 'Optional note' })
+    await user.type(title, 'Slow transfers')
+    await user.type(note, 'Keep this context')
+    await user.click(screen.getByRole('button', { name: 'Save and add another' }))
+
+    expect(title).toHaveValue('Slow transfers')
+    expect(note).toHaveValue('Keep this context')
+    expect(screen.getByRole('button', { name: 'Save and add another' })).toBeEnabled()
+  })
+
+  it('submits continued capture only once for repeated activation', async () => {
+    const user = userEvent.setup()
+    let resolveCreate: ((created: boolean) => void) | undefined
+    const onCreate = vi.fn(
+      () =>
+        new Promise<boolean>((resolve) => {
+          resolveCreate = resolve
+        }),
+    )
+    render(<AddItemDialog kind="problem" onCancel={noop} onCreate={onCreate} />)
+
+    await user.type(screen.getByRole('textbox', { name: 'Title' }), 'Problem')
+    await user.dblClick(screen.getByRole('button', { name: 'Save and add another' }))
+
+    expect(onCreate).toHaveBeenCalledTimes(1)
+    resolveCreate?.(true)
+  })
+
   it('submits an inventory item only once for repeated activation', async () => {
     const user = userEvent.setup()
     const onCreate = vi.fn(async () => true)

@@ -1,5 +1,6 @@
 import { useGSAP } from '@gsap/react'
 import {
+  type FitViewOptions,
   type OnMoveEnd,
   type OnNodeDrag,
   useNodesState,
@@ -26,6 +27,7 @@ import type { WorkspaceActions } from '../../../state/workspace-store'
 import { stageConfig } from '../../workshop/kind-config'
 import { resolveVerticalOverlaps } from '../layout/resolve-overlaps'
 import type { IslandFlowNode } from '../view-models'
+import { measureCanvasSafePadding } from './canvas-safe-padding'
 
 gsap.registerPlugin(useGSAP, CustomEase)
 CustomEase.create('workshop-layout', '0.77,0,0.175,1')
@@ -33,6 +35,7 @@ CustomEase.create('workshop-layout', '0.77,0,0.175,1')
 type IslandSurface = { id: string; element: HTMLElement }
 type VisibleIslandRects = Map<string, { left: number; top: number }>
 type LayoutRequestDetail = { mode: 'tidy' | 'freeform' }
+type SafeFitViewOptions = Omit<FitViewOptions<IslandFlowNode>, 'padding'>
 
 type UseAssemblyCanvasOptions = {
   workspace: AssemblyPhaseState
@@ -54,6 +57,22 @@ function getIslandSurfaces(root: HTMLElement | null): IslandSurface[] {
     const element = node.querySelector<HTMLElement>(':scope > .user-island')
     return id && element ? [{ id, element }] : []
   })
+}
+
+function measureCompactIslandHeights(
+  root: HTMLElement | null,
+  surfaces: IslandSurface[],
+): Record<string, number> {
+  if (!root) return {}
+
+  root.dataset.tidyMeasuring = 'true'
+  try {
+    return Object.fromEntries(
+      surfaces.map(({ id, element }) => [id, element.offsetHeight]),
+    )
+  } finally {
+    delete root.dataset.tidyMeasuring
+  }
 }
 
 export function useAssemblyCanvas({
@@ -84,51 +103,43 @@ export function useAssemblyCanvas({
   const focusAfterReflowRef = useRef<string[]>([])
   const { contextSafe } = useGSAP({ scope: wrapperRef })
 
+  const fitWithSafePadding = useCallback(
+    (options: SafeFitViewOptions = {}) => {
+      window.requestAnimationFrame(() => {
+        void fitView({
+          ...options,
+          padding: measureCanvasSafePadding(wrapperRef.current),
+        })
+      })
+    },
+    [fitView],
+  )
+
+  const fitCanvas = useCallback(() => {
+    fitWithSafePadding({ duration: reducedMotion ? 0 : 240 })
+  }, [fitWithSafePadding, reducedMotion])
+
   const fitAfterLayout = useCallback(() => {
     if (!fitAfterLayoutRef.current) return
     fitAfterLayoutRef.current = false
-    window.requestAnimationFrame(() => {
-      void fitView({
-        padding: 0.12,
-        maxZoom: 1,
-        duration: reducedMotion ? 0 : 220,
-      })
+    fitWithSafePadding({
+      maxZoom: 1,
+      duration: reducedMotion ? 0 : 220,
     })
-  }, [fitView, reducedMotion])
+  }, [fitWithSafePadding, reducedMotion])
 
   const focusGrownIslands = useCallback(() => {
     const islandIds = focusAfterReflowRef.current
     focusAfterReflowRef.current = []
     if (!islandIds.length) return
     const currentZoom = getViewport().zoom
-    const shelfInset =
-      workspace.assembly.sourceShelfOpen &&
-      workspace.assembly.layout.mode === 'freeform'
-        ? (wrapperRef.current?.clientWidth ?? 1200) < 1120
-          ? 276
-          : 318
-        : 24
-    window.requestAnimationFrame(() => {
-      void fitView({
-        nodes: islandIds.map((id) => ({ id })),
-        padding: {
-          top: '104px',
-          right: '24px',
-          bottom: '24px',
-          left: `${shelfInset}px`,
-        },
-        minZoom: Math.min(islandIds.length > 1 ? 0.46 : 0.62, currentZoom),
-        maxZoom: currentZoom,
-        duration: reducedMotion ? 0 : 220,
-      })
+    fitWithSafePadding({
+      nodes: islandIds.map((id) => ({ id })),
+      minZoom: Math.min(islandIds.length > 1 ? 0.46 : 0.62, currentZoom),
+      maxZoom: currentZoom,
+      duration: reducedMotion ? 0 : 220,
     })
-  }, [
-    fitView,
-    getViewport,
-    reducedMotion,
-    workspace.assembly.layout.mode,
-    workspace.assembly.sourceShelfOpen,
-  ])
+  }, [fitWithSafePadding, getViewport, reducedMotion])
 
   useEffect(() => {
     const handleLayoutRequest = (event: Event) => {
@@ -141,9 +152,7 @@ export function useAssemblyCanvas({
           ? (() => {
               const root = wrapperRef.current
               const surfaces = getIslandSurfaces(root)
-              const islandHeights = Object.fromEntries(
-                surfaces.map(({ id, element }) => [id, element.offsetHeight]),
-              )
+              const islandHeights = measureCompactIslandHeights(root, surfaces)
               return actions.tidyIslands(
                 { x: 70, y: 90 },
                 {
@@ -515,6 +524,7 @@ export function useAssemblyCanvas({
   )
 
   return {
+    fitCanvas,
     handleMoveEnd,
     handleNodeDragStop,
     layoutAnimating,
