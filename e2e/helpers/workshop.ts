@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 
+import { E2E_GATE_INPUT } from '../access-fixture'
+
 export type InventoryKind = 'problem' | 'user' | 'region' | 'monetization'
 
 const inventoryMeta: Record<
@@ -46,8 +48,24 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+export function requiredAccessPassword() {
+  return E2E_GATE_INPUT
+}
+
+export async function unlockWorkshop(page: Page) {
+  const gate = page.getByRole('heading', {
+    name: 'Plasma One User Map',
+    exact: true,
+  })
+  await expect(gate).toBeVisible()
+  await page.getByLabel('Password').fill(requiredAccessPassword())
+  await page.getByRole('button', { name: 'Open workshop' }).click()
+  await expect(gate).toBeHidden()
+}
+
 export async function openBlankBoard(page: Page) {
   await page.goto('/')
+  await unlockWorkshop(page)
   await expect(
     page.getByRole('heading', { name: 'Problems', exact: true }),
   ).toBeVisible()

@@ -42,7 +42,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
       - if: github.event_name != 'pull_request'
-        run: DEPLOY_PAGES=true npm run build
+        run: VITE_E2E_ACCESS_GATE=false DEPLOY_PAGES=true npm run build
       - if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
       - if: github.event_name != 'pull_request'
