@@ -60,6 +60,8 @@ The browser suite covers Chromium at 1440×900 and 1024×768, plus a WebKit smok
 
 The app is a static site. GitHub Actions verifies the repository and deploys `main` to GitHub Pages.
 
+The password prompt is a client-side privacy screen, not server-side authentication. It keeps the workshop hidden during ordinary sharing and remembers access only for the current browser tab session. GitHub Pages still serves the public application bundle.
+
 ## Data and recovery
 
 Workshop data stays in the current browser profile. `Save copy` exports a validated JSON checkpoint. `Open copy` previews and opens that file as a new local generation without silently replacing the current board. The displaced board remains available from New board, then Restore previous board. Opening validates the V1 schema, relationships, file size, field lengths, and generous workshop entity limits before changing the current board.
